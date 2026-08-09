@@ -1,0 +1,5 @@
+pliron-llvm-intrinsics: LLVM intrinsics dialect for pliron
+Copyright 2026 Vaivaswatha Nagaraj and all contributors
+https://github.com/pliron-org/pliron-llvm-intrinsics
+
+Licensed under the Apache License, Version 2.0.

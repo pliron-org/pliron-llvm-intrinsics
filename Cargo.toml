@@ -1,0 +1,21 @@
+[package]
+name = "pliron-llvm-intrinsics"
+description = "LLVM intrinsics dialect for pliron"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/pliron-org/pliron-llvm-intrinsics"
+categories = ["compilers"]
+keywords = ["pliron", "llvm", "dialect", "intrinsics"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pliron = { git = "https://github.com/pliron-org/pliron.git" }
+pliron-llvm = { git = "https://github.com/pliron-org/pliron.git" }
+thiserror = "2"
+
+[dev-dependencies]
+expect-test = "1"
+env_logger = "0"
