@@ -7,5 +7,6 @@
 //! which lowers to [`CallIntrinsicOp`](pliron_llvm::ops::CallIntrinsicOp) in the LLVM
 //! dialect.
 
+pub mod mangling;
 pub mod ops;
 pub mod to_llvm;
