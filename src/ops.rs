@@ -4,12 +4,9 @@
 //! Ops in the LLVM intrinsics dialect.
 
 use pliron::{
-    builtin::{
-        op_interfaces::{
-            NOpdsInterface, NResultsInterface, OneOpdInterface, OneResultInterface,
-            SameOperandsAndResultType, SameOperandsType, SameResultsType,
-        },
-        types::{FP32Type, FP64Type},
+    builtin::op_interfaces::{
+        NOpdsInterface, NResultsInterface, OneOpdInterface, OneResultInterface,
+        SameOperandsAndResultType, SameOperandsType, SameResultsType,
     },
     common_traits::Verify,
     context::Context,
@@ -22,6 +19,8 @@ use pliron::{
     verify_err,
 };
 use thiserror::Error;
+
+use crate::utils::is_float_or_vector_of_float;
 
 /// Absolute value of a floating point operand.
 /// Equivalent to LLVM's [`llvm.fabs`](https://llvm.org/docs/LangRef.html#llvm-fabs-intrinsic) intrinsic.
@@ -76,8 +75,8 @@ pub enum FAbsOpVerifyErr {
 
 impl Verify for FAbsOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
-        let opd_ty = self.operand_type(ctx).deref(ctx);
-        if !opd_ty.is::<FP32Type>() && !opd_ty.is::<FP64Type>() {
+        let opd_ty = self.operand_type(ctx);
+        if !is_float_or_vector_of_float(opd_ty, ctx) {
             return verify_err!(self.loc(ctx), FAbsOpVerifyErr::OperandNotFloat);
         }
         Ok(())
