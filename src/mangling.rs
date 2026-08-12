@@ -25,7 +25,7 @@ macro_rules! impl_llvm_type_to_mangled_overload {
         #[type_interface_impl]
         impl LlvmTypeToMangledOverload for $src {
             fn to_mangled_string(&$self, _ctx: &Context, _loc: Location) -> Result<String> {
-                Ok($body)
+                Ok($text.to_string())
             }
         }
     };
