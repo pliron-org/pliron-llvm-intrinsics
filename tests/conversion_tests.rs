@@ -36,9 +36,9 @@ fn parse_module(ctx: &mut Context, input_ir: &str) -> pliron::context::Ptr<Opera
     parsed.expect_ok(ctx)
 }
 
-// `llvm_intrinsics.fabs` parsing/printing test.
+// `llvm_intrinsics.fabs` parsing/printing, lowering to LLVM and execution test.
 #[test]
-fn test_fabs_op_parse_print_verify() {
+fn test_fabs_op() {
     init_env_logger_for_tests!();
     let ctx = &mut Context::new();
 
@@ -104,45 +104,8 @@ fn test_fabs_op_parse_print_verify() {
             } !19
         }"#]]
     .assert_eq(&module_op.disp(ctx).to_string());
-}
 
-// `llvm_intrinsics.fabs` lowers to `llvm.call_intrinsic @llvm.fabs.*`.
-#[test]
-fn test_fabs_op_to_llvm_conversion() {
-    init_env_logger_for_tests!();
-    let ctx = &mut Context::new();
-
-    let input_ir = r#"
-        builtin.module @test_module {
-          ^entry():
-            llvm.func @test_fabs: llvm.func <builtin.fp64(builtin.fp64, builtin.fp32) variadic = false> [] {
-                ^entry(x: builtin.fp64, y: builtin.fp32):
-                    res64 = llvm_intrinsics.fabs x : builtin.fp64;
-                    res32 = llvm_intrinsics.fabs y : builtin.fp32;
-                    res32_ext = llvm.fpext <> res32 to builtin.fp64;
-                    res = llvm.fadd <> res64, res32_ext : builtin.fp64;
-                    llvm.return res
-            };
-            llvm.func @test_fabs_vec: llvm.func <builtin.fp64(builtin.fp64, builtin.fp64) variadic = false> [] {
-                ^entry(a: builtin.fp64, b: builtin.fp64):
-                    i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
-                    i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
-                    vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_abs = llvm_intrinsics.fabs vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    abs_a = llvm.extract_element vec_abs, i0 : builtin.fp64;
-                    abs_b = llvm.extract_element vec_abs, i1 : builtin.fp64;
-                    vec_res = llvm.fadd <> abs_a, abs_b : builtin.fp64;
-                    llvm.return vec_res
-            }
-        }
-        "#;
-
-    let parsed_op = parse_module(ctx, input_ir);
-    let module_op = Operation::get_op::<ModuleOp>(parsed_op, ctx).unwrap();
-    verify_op(&module_op, ctx).expect_ok(ctx);
-
+    // `llvm_intrinsics.fabs` lowers to `llvm.call_intrinsic @llvm.fabs.*`.
     apply_dialect_conversion(ctx, &mut LLVMIntrinsicsToLLVM, parsed_op).expect_ok(ctx);
     verify_op(&module_op, ctx).expect_ok(ctx);
 

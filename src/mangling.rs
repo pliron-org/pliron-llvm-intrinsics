@@ -21,10 +21,10 @@ pub trait LlvmTypeToMangledOverload {
 }
 
 macro_rules! impl_llvm_type_to_mangled_overload {
-    ($src:ty, $self:ident => $text:expr) => {
+    ($src:ty => $text:expr) => {
         #[type_interface_impl]
         impl LlvmTypeToMangledOverload for $src {
-            fn to_mangled_string(&$self, _ctx: &Context, _loc: Location) -> Result<String> {
+            fn to_mangled_string(&self, _ctx: &Context, _loc: Location) -> Result<String> {
                 Ok($text.to_string())
             }
         }
@@ -38,9 +38,9 @@ impl LlvmTypeToMangledOverload for IntegerType {
     }
 }
 
-impl_llvm_type_to_mangled_overload!(FP16Type, self => "f16");
-impl_llvm_type_to_mangled_overload!(FP32Type, self => "f32");
-impl_llvm_type_to_mangled_overload!(FP64Type, self => "f64");
+impl_llvm_type_to_mangled_overload!(FP16Type => "f16");
+impl_llvm_type_to_mangled_overload!(FP32Type => "f32");
+impl_llvm_type_to_mangled_overload!(FP64Type => "f64");
 
 #[type_interface_impl]
 impl LlvmTypeToMangledOverload for VectorType {
