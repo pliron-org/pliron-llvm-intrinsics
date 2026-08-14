@@ -4,7 +4,7 @@
 //! Convert the LLVM intrinsics dialect to the LLVM dialect.
 
 use pliron::{
-    builtin::{attributes::StringAttr, op_interfaces::OneOpdInterface, types::FP32Type},
+    builtin::{attributes::StringAttr, op_interfaces::OneOpdInterface},
     context::{Context, Ptr},
     derive::op_interface_impl,
     irbuild::{
@@ -18,7 +18,7 @@ use pliron::{
 };
 use pliron_llvm::{ToLLVMDialect, ops::CallIntrinsicOp, types::FuncType};
 
-use crate::ops::FAbsOp;
+use crate::{mangling::llvm_mangled_ty, ops::FAbsOp};
 
 #[op_interface_impl]
 impl ToLLVMDialect for FAbsOp {
@@ -31,13 +31,7 @@ impl ToLLVMDialect for FAbsOp {
         let arg = self.get_operand(ctx);
         let arg_ty = self.operand_type(ctx);
 
-        // `llvm.fabs` is overloaded on its argument type; the mangled
-        // intrinsic name must carry the concrete type suffix.
-        let suffix = if arg_ty.deref(ctx).is::<FP32Type>() {
-            "f32"
-        } else {
-            "f64"
-        };
+        let suffix = llvm_mangled_ty(ctx, arg_ty, self.loc(ctx))?;
         let intrinsic_name: StringAttr = format!("llvm.fabs.{suffix}").into();
 
         let func_ty = FuncType::get(ctx, arg_ty, vec![arg_ty], false);
