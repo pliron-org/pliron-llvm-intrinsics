@@ -327,11 +327,11 @@ fn test_all_intrinsics_lowering_snapshot() {
     verify_op(&module_op, ctx).expect_ok(ctx);
 
     expect![[r#"
-        builtin.module @test_module
+        builtin.module @test_module 
         {
           ^entry_block1v1() !0:
             llvm.func @all_f32: llvm.func <builtin.fp32 (builtin.fp32 ) variadic = false>
-              []
+              [] 
             {
               ^entry_block2v1(x_v0: builtin.fp32 ) !1:
                 r0_v33 = llvm.call_intrinsic @"llvm.fabs.f32" (x_v0) : llvm.func <builtin.fp32 (builtin.fp32 ) variadic = false> !2;
@@ -362,7 +362,7 @@ fn test_all_intrinsics_lowering_snapshot() {
                 llvm.return r24_v57 !27
             } !28;
             llvm.func @overloads: llvm.func <builtin.fp64 (builtin.fp64 ) variadic = false>
-              []
+              [] 
             {
               ^entry_block3v1(x_v26: builtin.fp64 ) !29:
                 i0_v27 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32 !30;
