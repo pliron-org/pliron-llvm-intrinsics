@@ -46,342 +46,235 @@ fn assert_close_f32(actual: f32, expected: f32, what: &str) {
 
 /// Test a unary float intrinsic end to end: parse it on `fp64`, `fp32` and a vector of
 /// `fp64`, lower it, check each use picked up the right overload suffix, hand the module
-/// to LLVM, and JIT it to confirm the lowered call computes what `$reference` computes.
-macro_rules! test_unary_float_intrinsic {
-    ($test:ident, $op:literal, $base:literal, $x:expr, $a:expr, $b:expr, $reference:expr) => {
-        #[test]
-        fn $test() {
-            init_env_logger_for_tests!();
-            let ctx = &mut Context::new();
+/// to LLVM, and JIT it to confirm the lowered call computes what `reference` computes.
+fn test_unary_float_intrinsic(
+    base: &str,
+    x: f64,
+    a: f64,
+    b: f64,
+    reference: impl Fn(f64) -> f64,
+) {
+    init_env_logger_for_tests!();
+    let ctx = &mut Context::new();
+    let op = format!("llvm_intrinsics.{}", base);
 
-            let input_ir = format!(
-            r#"
-                builtin.module @test_module {{
-                ^entry():
-                    llvm.func @test_f64: llvm.func <builtin.fp64(builtin.fp64) variadic = false> [] {{
-                        ^entry(x: builtin.fp64):
-                            res = {op} x : builtin.fp64;
-                            llvm.return res
-                    }};
-                    llvm.func @test_f32: llvm.func <builtin.fp32(builtin.fp32) variadic = false> [] {{
-                        ^entry(x: builtin.fp32):
-                            res = {op} x : builtin.fp32;
-                            llvm.return res
-                    }};
-                    llvm.func @test_vec: llvm.func <builtin.fp64(builtin.fp64, builtin.fp64) variadic = false> [] {{
-                        ^entry(a: builtin.fp64, b: builtin.fp64):
-                            i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
-                            i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
-                            vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
-                            vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                            vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                            vec_res = {op} vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
-                            res_a = llvm.extract_element vec_res, i0 : builtin.fp64;
-                            res_b = llvm.extract_element vec_res, i1 : builtin.fp64;
-                            res = llvm.fadd <> res_a, res_b : builtin.fp64;
-                            llvm.return res
-                    }}
-                }}
-                "#,
-                op = $op
-            );
+    let input_ir = format!(
+        r#"
+        builtin.module @test_module {{
+        ^entry():
+            llvm.func @test_f64: llvm.func <builtin.fp64(builtin.fp64) variadic = false> [] {{
+                ^entry(x: builtin.fp64):
+                    res = {op} x : builtin.fp64;
+                    llvm.return res
+            }};
+            llvm.func @test_f32: llvm.func <builtin.fp32(builtin.fp32) variadic = false> [] {{
+                ^entry(x: builtin.fp32):
+                    res = {op} x : builtin.fp32;
+                    llvm.return res
+            }};
+            llvm.func @test_vec: llvm.func <builtin.fp64(builtin.fp64, builtin.fp64) variadic = false> [] {{
+                ^entry(a: builtin.fp64, b: builtin.fp64):
+                    i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
+                    i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
+                    vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_res = {op} vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    res_a = llvm.extract_element vec_res, i0 : builtin.fp64;
+                    res_b = llvm.extract_element vec_res, i1 : builtin.fp64;
+                    res = llvm.fadd <> res_a, res_b : builtin.fp64;
+                    llvm.return res
+            }}
+        }}
+        "#,
+    );
 
-            let module_op = parse_verify_module(ctx, &input_ir).expect_ok(ctx);
+    let module_op = parse_verify_module(ctx, &input_ir).expect_ok(ctx);
 
-            // Every `llvm_intrinsics.*` op is gone, replaced by `llvm.call_intrinsic`.
-            apply_dialect_conversion(ctx, &mut LLVMIntrinsicsToLLVM, module_op.get_operation())
-                .expect_ok(ctx);
-            verify_op(&module_op, ctx).expect_ok(ctx);
-            let printed = module_op.disp(ctx).to_string();
-            assert!(
-                !printed.contains($op),
-                "{} survived dialect conversion:\n{printed}",
-                $op
-            );
+    // Every `llvm_intrinsics.*` op is gone, replaced by `llvm.call_intrinsic`.
+    apply_dialect_conversion(ctx, &mut LLVMIntrinsicsToLLVM, module_op.get_operation())
+        .expect_ok(ctx);
+    verify_op(&module_op, ctx).expect_ok(ctx);
+    let printed = module_op.disp(ctx).to_string();
+    assert!(
+        !printed.contains(&op),
+        "{} survived dialect conversion:\n{printed}",
+        op
+    );
 
-            let llvm_ctx = LLVMContext::default();
-            let llvm_ir =
-                pliron_llvm::to_llvm_ir::convert_module(ctx, &llvm_ctx, module_op).expect_ok(ctx);
-            llvm_ir
-                .verify()
-                .inspect_err(|e| println!("LLVM-IR verification failed: {}", e))
-                .unwrap();
+    let llvm_ctx = LLVMContext::default();
+    let llvm_ir = pliron_llvm::to_llvm_ir::convert_module(ctx, &llvm_ctx, module_op).expect_ok(ctx);
+    llvm_ir
+        .verify()
+        .inspect_err(|e| println!("LLVM-IR verification failed: {}", e))
+        .unwrap();
 
-            // Each use is overloaded on its own operand type.
-            let ir = llvm_ir.to_string();
-            for suffix in ["f64", "f32", "v2f64"] {
-                let mangled = format!(concat!("@llvm.", $base, ".{}("), suffix);
-                assert!(ir.contains(&mangled), "missing {mangled} in:\n{ir}");
-            }
+    // Each use is overloaded on its own operand type.
+    let ir = llvm_ir.to_string();
+    for suffix in ["f64", "f32", "v2f64"] {
+        let mangled = format!("@llvm.{}.{}(", base, suffix);
+        assert!(ir.contains(&mangled), "missing {mangled} in:\n{ir}");
+    }
 
-            let reference: fn(f64) -> f64 = $reference;
-            let jit = SimpleJIT::new(llvm_ctx, llvm_ir).expect("SimpleJIT creation failed");
+    let jit = SimpleJIT::new(llvm_ctx, llvm_ir).expect("SimpleJIT creation failed");
 
-            let f64_fn: JitSymbol<fn(f64) -> f64> = unsafe {
-                jit.lookup_symbol("test_f64")
-                    .expect("Couldn't lookup symbol")
-            };
-            assert_close_f64(f64_fn($x), reference($x), concat!($op, " on fp64"));
-
-            let f32_fn: JitSymbol<fn(f32) -> f32> = unsafe {
-                jit.lookup_symbol("test_f32")
-                    .expect("Couldn't lookup symbol")
-            };
-            assert_close_f32(
-                f32_fn($x as f32),
-                reference($x) as f32,
-                concat!($op, " on fp32"),
-            );
-
-            let vec_fn: JitSymbol<fn(f64, f64) -> f64> = unsafe {
-                jit.lookup_symbol("test_vec")
-                    .expect("Couldn't lookup symbol")
-            };
-            assert_close_f64(
-                vec_fn($a, $b),
-                reference($a) + reference($b),
-                concat!($op, " on a vector of fp64"),
-            );
-        }
+    let f64_fn: JitSymbol<fn(f64) -> f64> = unsafe {
+        jit.lookup_symbol("test_f64")
+            .expect("Couldn't lookup symbol")
     };
+    assert_close_f64(f64_fn(x), reference(x), &format!("{op} on fp64"));
+
+    let f32_fn: JitSymbol<fn(f32) -> f32> = unsafe {
+        jit.lookup_symbol("test_f32")
+            .expect("Couldn't lookup symbol")
+    };
+    assert_close_f32(
+        f32_fn(x as f32),
+        reference(x) as f32,
+        &format!("{op} on fp32"),
+    );
+
+    let vec_fn: JitSymbol<fn(f64, f64) -> f64> = unsafe {
+        jit.lookup_symbol("test_vec")
+            .expect("Couldn't lookup symbol")
+    };
+    assert_close_f64(
+        vec_fn(a, b),
+        reference(a) + reference(b),
+        &format!("{op} on a vector of fp64"),
+    );
 }
 
-test_unary_float_intrinsic!(
-    test_fabs,
-    "llvm_intrinsics.fabs",
-    "fabs",
-    -0.5,
-    -0.25,
-    0.75,
-    |x| x.abs()
-);
-test_unary_float_intrinsic!(
-    test_sqrt,
-    "llvm_intrinsics.sqrt",
-    "sqrt",
-    0.5,
-    0.25,
-    0.75,
-    f64::sqrt
-);
+#[test]
+fn test_fabs() {
+    test_unary_float_intrinsic("fabs", -0.5, -0.25, 0.75, |x| x.abs());
+}
+
+#[test]
+fn test_sqrt() {
+    test_unary_float_intrinsic("sqrt", 0.5, 0.25, 0.75, f64::sqrt);
+}
 
 // Trigonometric.
-test_unary_float_intrinsic!(
-    test_sin,
-    "llvm_intrinsics.sin",
-    "sin",
-    0.5,
-    0.25,
-    0.75,
-    f64::sin
-);
-test_unary_float_intrinsic!(
-    test_cos,
-    "llvm_intrinsics.cos",
-    "cos",
-    0.5,
-    0.25,
-    0.75,
-    f64::cos
-);
-test_unary_float_intrinsic!(
-    test_tan,
-    "llvm_intrinsics.tan",
-    "tan",
-    0.5,
-    0.25,
-    0.75,
-    f64::tan
-);
-test_unary_float_intrinsic!(
-    test_asin,
-    "llvm_intrinsics.asin",
-    "asin",
-    0.5,
-    0.25,
-    0.75,
-    f64::asin
-);
-test_unary_float_intrinsic!(
-    test_acos,
-    "llvm_intrinsics.acos",
-    "acos",
-    0.5,
-    0.25,
-    0.75,
-    f64::acos
-);
-test_unary_float_intrinsic!(
-    test_atan,
-    "llvm_intrinsics.atan",
-    "atan",
-    0.5,
-    0.25,
-    0.75,
-    f64::atan
-);
+#[test]
+fn test_sin() {
+    test_unary_float_intrinsic("sin", 0.5, 0.25, 0.75, f64::sin);
+}
+
+#[test]
+fn test_cos() {
+    test_unary_float_intrinsic("cos", 0.5, 0.25, 0.75, f64::cos);
+}
+
+#[test]
+fn test_tan() {
+    test_unary_float_intrinsic("tan", 0.5, 0.25, 0.75, f64::tan);
+}
+
+#[test]
+fn test_asin() {
+    test_unary_float_intrinsic("asin", 0.5, 0.25, 0.75, f64::asin);
+}
+
+#[test]
+fn test_acos() {
+    test_unary_float_intrinsic("acos", 0.5, 0.25, 0.75, f64::acos);
+}
+
+#[test]
+fn test_atan() {
+    test_unary_float_intrinsic("atan", 0.5, 0.25, 0.75, f64::atan);
+}
 
 // Hyperbolic.
-test_unary_float_intrinsic!(
-    test_sinh,
-    "llvm_intrinsics.sinh",
-    "sinh",
-    0.5,
-    0.25,
-    0.75,
-    f64::sinh
-);
-test_unary_float_intrinsic!(
-    test_cosh,
-    "llvm_intrinsics.cosh",
-    "cosh",
-    0.5,
-    0.25,
-    0.75,
-    f64::cosh
-);
-test_unary_float_intrinsic!(
-    test_tanh,
-    "llvm_intrinsics.tanh",
-    "tanh",
-    0.5,
-    0.25,
-    0.75,
-    f64::tanh
-);
+#[test]
+fn test_sinh() {
+    test_unary_float_intrinsic("sinh", 0.5, 0.25, 0.75, f64::sinh);
+}
+
+#[test]
+fn test_cosh() {
+    test_unary_float_intrinsic("cosh", 0.5, 0.25, 0.75, f64::cosh);
+}
+
+#[test]
+fn test_tanh() {
+    test_unary_float_intrinsic("tanh", 0.5, 0.25, 0.75, f64::tanh);
+}
 
 // Exponential and logarithmic.
-test_unary_float_intrinsic!(
-    test_exp,
-    "llvm_intrinsics.exp",
-    "exp",
-    0.5,
-    0.25,
-    0.75,
-    f64::exp
-);
-test_unary_float_intrinsic!(
-    test_exp2,
-    "llvm_intrinsics.exp2",
-    "exp2",
-    0.5,
-    0.25,
-    0.75,
-    f64::exp2
-);
-test_unary_float_intrinsic!(
-    test_exp10,
-    "llvm_intrinsics.exp10",
-    "exp10",
-    0.5,
-    0.25,
-    0.75,
-    |x| 10f64.powf(x)
-);
-test_unary_float_intrinsic!(
-    test_log,
-    "llvm_intrinsics.log",
-    "log",
-    0.5,
-    0.25,
-    0.75,
-    f64::ln
-);
-test_unary_float_intrinsic!(
-    test_log2,
-    "llvm_intrinsics.log2",
-    "log2",
-    0.5,
-    0.25,
-    0.75,
-    f64::log2
-);
-test_unary_float_intrinsic!(
-    test_log10,
-    "llvm_intrinsics.log10",
-    "log10",
-    0.5,
-    0.25,
-    0.75,
-    f64::log10
-);
+#[test]
+fn test_exp() {
+    test_unary_float_intrinsic("exp", 0.5, 0.25, 0.75, f64::exp);
+}
+
+#[test]
+fn test_exp2() {
+    test_unary_float_intrinsic("exp2", 0.5, 0.25, 0.75, f64::exp2);
+}
+
+#[test]
+fn test_exp10() {
+    test_unary_float_intrinsic("exp10", 0.5, 0.25, 0.75, |x| 10f64.powf(x));
+}
+
+#[test]
+fn test_log() {
+    test_unary_float_intrinsic("log", 0.5, 0.25, 0.75, f64::ln);
+}
+
+#[test]
+fn test_log2() {
+    test_unary_float_intrinsic("log2", 0.5, 0.25, 0.75, f64::log2);
+}
+
+#[test]
+fn test_log10() {
+    test_unary_float_intrinsic("log10", 0.5, 0.25, 0.75, f64::log10);
+}
 
 // Rounding. The inputs are chosen so that ties-away-from-zero (`round`) and
 // ties-to-even (`roundeven`, `rint`, `nearbyint`) disagree.
-test_unary_float_intrinsic!(
-    test_floor,
-    "llvm_intrinsics.floor",
-    "floor",
-    2.5,
-    -3.75,
-    0.5,
-    f64::floor
-);
-test_unary_float_intrinsic!(
-    test_ceil,
-    "llvm_intrinsics.ceil",
-    "ceil",
-    2.5,
-    -3.75,
-    0.5,
-    f64::ceil
-);
-test_unary_float_intrinsic!(
-    test_trunc,
-    "llvm_intrinsics.trunc",
-    "trunc",
-    2.5,
-    -3.75,
-    0.5,
-    f64::trunc
-);
-test_unary_float_intrinsic!(
-    test_rint,
-    "llvm_intrinsics.rint",
-    "rint",
-    2.5,
-    -3.75,
-    0.5,
-    f64::round_ties_even
-);
-test_unary_float_intrinsic!(
-    test_nearbyint,
-    "llvm_intrinsics.nearbyint",
-    "nearbyint",
-    2.5,
-    -3.75,
-    0.5,
-    f64::round_ties_even
-);
-test_unary_float_intrinsic!(
-    test_round,
-    "llvm_intrinsics.round",
-    "round",
-    2.5,
-    -3.75,
-    0.5,
-    f64::round
-);
-test_unary_float_intrinsic!(
-    test_roundeven,
-    "llvm_intrinsics.roundeven",
-    "roundeven",
-    2.5,
-    -3.75,
-    0.5,
-    f64::round_ties_even
-);
+#[test]
+fn test_floor() {
+    test_unary_float_intrinsic("floor", 2.5, -3.75, 0.5, f64::floor);
+}
+
+#[test]
+fn test_ceil() {
+    test_unary_float_intrinsic("ceil", 2.5, -3.75, 0.5, f64::ceil);
+}
+
+#[test]
+fn test_trunc() {
+    test_unary_float_intrinsic("trunc", 2.5, -3.75, 0.5, f64::trunc);
+}
+
+#[test]
+fn test_rint() {
+    test_unary_float_intrinsic("rint", 2.5, -3.75, 0.5, f64::round_ties_even);
+}
+
+#[test]
+fn test_nearbyint() {
+    test_unary_float_intrinsic("nearbyint", 2.5, -3.75, 0.5, f64::round_ties_even);
+}
+
+#[test]
+fn test_round() {
+    test_unary_float_intrinsic("round", 2.5, -3.75, 0.5, f64::round);
+}
+
+#[test]
+fn test_roundeven() {
+    test_unary_float_intrinsic("roundeven", 2.5, -3.75, 0.5, f64::round_ties_even);
+}
 
 // Misc. `canonicalize` is the identity on the normal values used here.
-test_unary_float_intrinsic!(
-    test_canonicalize,
-    "llvm_intrinsics.canonicalize",
-    "canonicalize",
-    0.5,
-    0.25,
-    0.75,
-    |x| x
-);
+#[test]
+fn test_canonicalize() {
+    test_unary_float_intrinsic("canonicalize", 0.5, 0.25, 0.75, |x| x);
+}
 
 #[test]
 fn test_all_intrinsics_lowering_snapshot() {
@@ -440,11 +333,11 @@ fn test_all_intrinsics_lowering_snapshot() {
     verify_op(&module_op, ctx).expect_ok(ctx);
 
     expect![[r#"
-        builtin.module @test_module 
+        builtin.module @test_module
         {
           ^entry_block1v1() !0:
             llvm.func @all_f32: llvm.func <builtin.fp32 (builtin.fp32 ) variadic = false>
-              [] 
+              []
             {
               ^entry_block2v1(x_v0: builtin.fp32 ) !1:
                 r0_v33 = llvm.call_intrinsic @"llvm.fabs.f32" (x_v0) : llvm.func <builtin.fp32 (builtin.fp32 ) variadic = false> !2;
@@ -475,7 +368,7 @@ fn test_all_intrinsics_lowering_snapshot() {
                 llvm.return r24_v57 !27
             } !28;
             llvm.func @overloads: llvm.func <builtin.fp64 (builtin.fp64 ) variadic = false>
-              [] 
+              []
             {
               ^entry_block3v1(x_v26: builtin.fp64 ) !29:
                 i0_v27 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32 !30;
