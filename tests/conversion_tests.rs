@@ -55,34 +55,34 @@ macro_rules! test_unary_float_intrinsic {
             let ctx = &mut Context::new();
 
             let input_ir = format!(
-                r#"
-        builtin.module @test_module {{
-          ^entry():
-            llvm.func @test_f64: llvm.func <builtin.fp64(builtin.fp64) variadic = false> [] {{
-                ^entry(x: builtin.fp64):
-                    res = {op} x : builtin.fp64;
-                    llvm.return res
-            }};
-            llvm.func @test_f32: llvm.func <builtin.fp32(builtin.fp32) variadic = false> [] {{
-                ^entry(x: builtin.fp32):
-                    res = {op} x : builtin.fp32;
-                    llvm.return res
-            }};
-            llvm.func @test_vec: llvm.func <builtin.fp64(builtin.fp64, builtin.fp64) variadic = false> [] {{
-                ^entry(a: builtin.fp64, b: builtin.fp64):
-                    i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
-                    i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
-                    vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_res = {op} vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    res_a = llvm.extract_element vec_res, i0 : builtin.fp64;
-                    res_b = llvm.extract_element vec_res, i1 : builtin.fp64;
-                    res = llvm.fadd <> res_a, res_b : builtin.fp64;
-                    llvm.return res
-            }}
-        }}
-        "#,
+            r#"
+                builtin.module @test_module {{
+                ^entry():
+                    llvm.func @test_f64: llvm.func <builtin.fp64(builtin.fp64) variadic = false> [] {{
+                        ^entry(x: builtin.fp64):
+                            res = {op} x : builtin.fp64;
+                            llvm.return res
+                    }};
+                    llvm.func @test_f32: llvm.func <builtin.fp32(builtin.fp32) variadic = false> [] {{
+                        ^entry(x: builtin.fp32):
+                            res = {op} x : builtin.fp32;
+                            llvm.return res
+                    }};
+                    llvm.func @test_vec: llvm.func <builtin.fp64(builtin.fp64, builtin.fp64) variadic = false> [] {{
+                        ^entry(a: builtin.fp64, b: builtin.fp64):
+                            i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
+                            i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
+                            vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
+                            vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                            vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                            vec_res = {op} vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
+                            res_a = llvm.extract_element vec_res, i0 : builtin.fp64;
+                            res_b = llvm.extract_element vec_res, i1 : builtin.fp64;
+                            res = llvm.fadd <> res_a, res_b : builtin.fp64;
+                            llvm.return res
+                    }}
+                }}
+                "#,
                 op = $op
             );
 

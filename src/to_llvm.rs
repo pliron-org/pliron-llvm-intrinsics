@@ -4,7 +4,7 @@
 //! Convert the LLVM intrinsics dialect to the LLVM dialect.
 
 use pliron::{
-    builtin::{attributes::StringAttr, op_interfaces::OneOpdInterface},
+    builtin::attributes::StringAttr,
     context::{Context, Ptr},
     derive::op_interface_impl,
     irbuild::{
@@ -20,8 +20,27 @@ use pliron_llvm::{ToLLVMDialect, ops::CallIntrinsicOp, types::FuncType};
 
 use crate::{mangling::llvm_mangled_ty, ops::*};
 
-/// Lower a unary float intrinsic [Op] to a [`CallIntrinsicOp`] calling `llvm.<base>`,
+/// Lower a unary float intrinsic [Op] to a [`CallIntrinsicOp`] calling `llvm.<opname>`,
 /// overloaded on the operand type.
+fn rewrite_unary_float_intrinsic(
+    op: &dyn UnaryFloatIntrinsicInterface,
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+) -> Result<()> {
+    let arg = op.get_operand(ctx);
+    let arg_ty = op.operand_type(ctx);
+
+    let base_name = op.get_opid().name;
+    let suffix = llvm_mangled_ty(ctx, arg_ty, op.loc(ctx))?;
+    let intrinsic_name: StringAttr = format!("llvm.{}.{}", base_name, suffix).into();
+
+    let func_ty = FuncType::get(ctx, arg_ty, vec![arg_ty], false);
+    let call_op = CallIntrinsicOp::new(ctx, intrinsic_name, func_ty, vec![arg]);
+    rewriter.insert_op(ctx, &call_op);
+    rewriter.replace_operation(ctx, op.get_operation(), call_op.get_operation());
+    Ok(())
+}
+
 macro_rules! lower_unary_float_intrinsic {
     ($op:ty, $base:literal) => {
         #[op_interface_impl]
@@ -32,19 +51,7 @@ macro_rules! lower_unary_float_intrinsic {
                 rewriter: &mut DialectConversionRewriter,
                 _operands_info: &OperandsInfo,
             ) -> Result<()> {
-                let arg = self.get_operand(ctx);
-                let arg_ty = self.operand_type(ctx);
-
-                let suffix = llvm_mangled_ty(ctx, arg_ty, self.loc(ctx))?;
-                let intrinsic_name: StringAttr =
-                    format!(concat!("llvm.", $base, ".{}"), suffix).into();
-
-                let func_ty = FuncType::get(ctx, arg_ty, vec![arg_ty], false);
-
-                let call_op = CallIntrinsicOp::new(ctx, intrinsic_name, func_ty, vec![arg]);
-                rewriter.insert_op(ctx, &call_op);
-                rewriter.replace_operation(ctx, self.get_operation(), call_op.get_operation());
-                Ok(())
+                rewrite_unary_float_intrinsic(self, ctx, rewriter)
             }
         }
     };

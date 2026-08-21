@@ -4,28 +4,48 @@
 //! Ops in the LLVM intrinsics dialect.
 
 use pliron::{
-    builtin::op_interfaces::{
-        NOpdsInterface, NResultsInterface, OneOpdInterface, OneResultInterface,
-        SameOperandsAndResultType, SameOperandsType, SameResultsType,
+    builtin::{
+        op_interfaces::{
+            NOpdsInterface, OneOpdInterface, OneResultInterface, SameOperandsAndResultType,
+            SameOperandsType, SameResultsType,
+        },
+        type_interfaces::FloatTypeInterface,
     },
-    common_traits::Verify,
     context::Context,
-    derive::pliron_op,
+    derive::{op_interface, pliron_op},
     op::Op,
     operation::Operation,
     result::Result,
     r#type::Typed,
     value::Value,
-    verify_err,
 };
-use thiserror::Error;
+use pliron_llvm::op_interfaces::ScalarOrVectorOpdImpls;
 
-use crate::utils::is_float_or_vector_of_float;
+#[op_interface]
+pub trait UnaryFloatIntrinsicInterface: OneOpdInterface + OneResultInterface {
+    /// Create a new unary float intrinsic op.
+    fn new(ctx: &mut Context, arg: Value) -> Self
+    where
+        Self: Sized,
+    {
+        let res_ty = arg.get_type(ctx);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![arg],
+            vec![],
+            0,
+        );
+        Operation::get_op::<Self>(op, ctx).unwrap()
+    }
 
-#[derive(Error, Debug)]
-pub enum UnaryFloatIntrinsicVerifyErr {
-    #[error("Operand of {0} must be a floating point type")]
-    OperandNotFloat(&'static str),
+    fn verify(_op: &dyn Op, _ctx: &Context) -> Result<()>
+    where
+        Self: Sized,
+    {
+        Ok(())
+    }
 }
 
 /// Define an [Op] for a unary LLVM intrinsic whose operand and result are both
@@ -35,9 +55,9 @@ pub enum UnaryFloatIntrinsicVerifyErr {
 /// they share a single set of interfaces, constructor and verifier. Intrinsics that
 /// deviate (extra `immarg` operands, integer operands or results, aggregate results)
 /// are not covered by this macro and need their own definitions.
-///
-/// `rustfmt` re-indents multi-line attribute arguments inside a `macro_rules!` body on
-/// every run without ever reaching a fixed point, so this definition is skipped.
+//
+// `rustfmt` re-indents multi-line attribute arguments inside a `macro_rules!` body on
+// every run without ever reaching a fixed point, so this definition is skipped.
 #[rustfmt::skip]
 macro_rules! unary_float_intrinsic {
     ($op:ident, $op_name:literal, $base:literal, $desc:literal) => {
@@ -67,44 +87,17 @@ macro_rules! unary_float_intrinsic {
             interfaces = [
                 NOpdsInterface<1>,
                 OneOpdInterface,
-                NResultsInterface<1>,
                 OneResultInterface,
                 SameOperandsType,
                 SameResultsType,
                 SameOperandsAndResultType,
+                ScalarOrVectorOpdImpls<dyn FloatTypeInterface, 0>,
+                UnaryFloatIntrinsicInterface,
             ],
             format = "$0 ` : ` type($0)",
+            verifier = "succ",
         )]
         pub struct $op;
-
-        impl $op {
-            #[doc = concat!("Create a new [", stringify!($op), "].")]
-            pub fn new(ctx: &mut Context, arg: Value) -> Self {
-                let res_ty = arg.get_type(ctx);
-                let op = Operation::new(
-                    ctx,
-                    Self::get_concrete_op_info(),
-                    vec![res_ty],
-                    vec![arg],
-                    vec![],
-                    0,
-                );
-                Self { op }
-            }
-        }
-
-        impl Verify for $op {
-            fn verify(&self, ctx: &Context) -> Result<()> {
-                let opd_ty = self.operand_type(ctx);
-                if !is_float_or_vector_of_float(opd_ty, ctx) {
-                    return verify_err!(
-                        self.loc(ctx),
-                        UnaryFloatIntrinsicVerifyErr::OperandNotFloat($op_name)
-                    );
-                }
-                Ok(())
-            }
-        }
     };
 }
 
