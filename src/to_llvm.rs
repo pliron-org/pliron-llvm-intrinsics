@@ -41,6 +41,8 @@ fn rewrite_unary_float_intrinsic(
     Ok(())
 }
 
+/// Implement ToLLVMDialect for a unary float intrinsic,
+/// wrapping around a call to `rewrite_unary_float_intrinsic`
 macro_rules! lower_unary_float_intrinsic {
     ($op:ty, $base:literal) => {
         #[op_interface_impl]
@@ -60,6 +62,7 @@ macro_rules! lower_unary_float_intrinsic {
 lower_unary_float_intrinsic!(FAbsOp, "fabs");
 lower_unary_float_intrinsic!(SqrtOp, "sqrt");
 
+// Trigonometric.
 lower_unary_float_intrinsic!(SinOp, "sin");
 lower_unary_float_intrinsic!(CosOp, "cos");
 lower_unary_float_intrinsic!(TanOp, "tan");
@@ -67,10 +70,12 @@ lower_unary_float_intrinsic!(AsinOp, "asin");
 lower_unary_float_intrinsic!(AcosOp, "acos");
 lower_unary_float_intrinsic!(AtanOp, "atan");
 
+// Hyperbolic.
 lower_unary_float_intrinsic!(SinhOp, "sinh");
 lower_unary_float_intrinsic!(CoshOp, "cosh");
 lower_unary_float_intrinsic!(TanhOp, "tanh");
 
+// Exponential and logarithmic.
 lower_unary_float_intrinsic!(ExpOp, "exp");
 lower_unary_float_intrinsic!(Exp2Op, "exp2");
 lower_unary_float_intrinsic!(Exp10Op, "exp10");
@@ -78,6 +83,7 @@ lower_unary_float_intrinsic!(LogOp, "log");
 lower_unary_float_intrinsic!(Log2Op, "log2");
 lower_unary_float_intrinsic!(Log10Op, "log10");
 
+// Rounding.
 lower_unary_float_intrinsic!(FloorOp, "floor");
 lower_unary_float_intrinsic!(CeilOp, "ceil");
 lower_unary_float_intrinsic!(TruncOp, "trunc");
@@ -86,6 +92,7 @@ lower_unary_float_intrinsic!(NearbyIntOp, "nearbyint");
 lower_unary_float_intrinsic!(RoundOp, "round");
 lower_unary_float_intrinsic!(RoundEvenOp, "roundeven");
 
+// Misc.
 lower_unary_float_intrinsic!(CanonicalizeOp, "canonicalize");
 
 /// [DialectConversion] that lowers every [Op] in the LLVM intrinsics dialect
