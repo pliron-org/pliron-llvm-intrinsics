@@ -51,10 +51,8 @@ pub trait UnaryFloatIntrinsicInterface: OneOpdInterface + OneResultInterface {
 /// Define an [Op] for a unary LLVM intrinsic whose operand and result are both
 /// a floating point type (or a vector thereof).
 ///
-/// Every such intrinsic has the same shape - `<fptype> @llvm.<base>(<fptype>)` - so
-/// they share a single set of interfaces, constructor and verifier. Intrinsics that
-/// deviate (extra `immarg` operands, integer operands or results, aggregate results)
-/// are not covered by this macro and need their own definitions.
+/// Every such intrinsic has the same shape - `<fptype> @llvm.<base>(<fptype>)`,
+/// sharing a single set of interfaces, constructor and verifier.
 //
 // `rustfmt` re-indents multi-line attribute arguments inside a `macro_rules!` body on
 // every run without ever reaching a fixed point, so this definition is skipped.
