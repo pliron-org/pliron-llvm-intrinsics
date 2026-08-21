@@ -47,13 +47,7 @@ fn assert_close_f32(actual: f32, expected: f32, what: &str) {
 /// Test a unary float intrinsic end to end: parse it on `fp64`, `fp32` and a vector of
 /// `fp64`, lower it, check each use picked up the right overload suffix, hand the module
 /// to LLVM, and JIT it to confirm the lowered call computes what `reference` computes.
-fn test_unary_float_intrinsic(
-    base: &str,
-    x: f64,
-    a: f64,
-    b: f64,
-    reference: impl Fn(f64) -> f64,
-) {
+fn test_unary_float_intrinsic(base: &str, x: f64, a: f64, b: f64, reference: impl Fn(f64) -> f64) {
     init_env_logger_for_tests!();
     let ctx = &mut Context::new();
     let op = format!("llvm_intrinsics.{}", base);
