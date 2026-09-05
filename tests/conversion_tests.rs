@@ -71,11 +71,11 @@ fn test_unary_float_intrinsic(base: &str, x: f64, a: f64, b: f64, reference: imp
                     i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
                     i1 = llvm.constant <builtin.integer <1: i32>> : builtin.integer i32;
                     vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_a = llvm.insert_element vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_ab = llvm.insert_element vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_a = llvm.insertelement vec_undef, a, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_ab = llvm.insertelement vec_a, b, i1 : llvm.vector <Fixed x 2 x builtin.fp64>;
                     vec_res = {op} vec_ab : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    res_a = llvm.extract_element vec_res, i0 : builtin.fp64;
-                    res_b = llvm.extract_element vec_res, i1 : builtin.fp64;
+                    res_a = llvm.extractelement vec_res, i0 : builtin.fp64;
+                    res_b = llvm.extractelement vec_res, i1 : builtin.fp64;
                     res = llvm.fadd <> res_a, res_b : builtin.fp64;
                     llvm.return res
             }}
@@ -312,9 +312,9 @@ fn test_all_intrinsics_lowering_snapshot() {
                     i0 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32;
                     s64 = llvm_intrinsics.sqrt x : builtin.fp64;
                     vec_undef = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    vec_x = llvm.insert_element vec_undef, s64, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
+                    vec_x = llvm.insertelement vec_undef, s64, i0 : llvm.vector <Fixed x 2 x builtin.fp64>;
                     vec_s = llvm_intrinsics.sqrt vec_x : llvm.vector <Fixed x 2 x builtin.fp64>;
-                    res = llvm.extract_element vec_s, i0 : builtin.fp64;
+                    res = llvm.extractelement vec_s, i0 : builtin.fp64;
                     llvm.return res
             }
         }
@@ -368,9 +368,9 @@ fn test_all_intrinsics_lowering_snapshot() {
                 i0_v27 = llvm.constant <builtin.integer <0: i32>> : builtin.integer i32 !30;
                 s64_v58 = llvm.call_intrinsic @"llvm.sqrt.f64" (x_v26) : llvm.func <builtin.fp64 (builtin.fp64 ) variadic = false> !31;
                 vec_undef_v29 = llvm.undef : llvm.vector <Fixed x 2 x builtin.fp64 > !32;
-                vec_x_v30 = llvm.insert_element vec_undef_v29, s64_v58, i0_v27 : llvm.vector <Fixed x 2 x builtin.fp64 > !33;
+                vec_x_v30 = llvm.insertelement vec_undef_v29, s64_v58, i0_v27 : llvm.vector <Fixed x 2 x builtin.fp64 > !33;
                 vec_s_v59 = llvm.call_intrinsic @"llvm.sqrt.v2f64" (vec_x_v30) : llvm.func <llvm.vector <Fixed x 2 x builtin.fp64 >(llvm.vector <Fixed x 2 x builtin.fp64 >) variadic = false> !34;
-                res_v32 = llvm.extract_element vec_s_v59, i0_v27 : builtin.fp64  !35;
+                res_v32 = llvm.extractelement vec_s_v59, i0_v27 : builtin.fp64  !35;
                 llvm.return res_v32 !36
             } !37
         }"#]].assert_eq(&module_op.disp(ctx).to_string());
